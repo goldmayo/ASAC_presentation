@@ -1,0 +1,274 @@
+# 비제어 컴포넌트를 위한 React Hook Form 조사 (사용법 등) 및 간단하게 활용해보기
+
+```bash
+  npm install react-hook-form
+```
+
+## [useForm props](https://www.react-hook-form.com/api/useform/)
+
+- mode: onChange | onBlur | onSubmit | onTouched | all
+  submit 전 검증 전략. handleSubmit 핸들러로 트리거된 onSubmit이벤트 동안 form값을 검증
+  (focus 이벤트는 요소가 포커스를 받을 때, blur 이벤트는 포커스를 잃을 때 발생)
+
+- reValidateMode: onChange | onBlur | onSubmit
+  submit 후 검증 전략.
+
+- defaultValues: FieldValues | Promise<FieldValues>
+  form의 기본 값
+
+- values: FieldValues
+  form에 업데이트된 값, 외부 state 또는 서버 데이터로 form을 업데이트해야 할 때 유용
+
+- resetOptions: KeepStateOptions
+  form 값을 업데이트하는 동안 form 상태를 리셋하고 업데이트 하기 위한 옵션
+
+- criteriaMode: firstError | all
+  모든 유효성 검사 오류를 표시하거나 한 번에 하나씩 표시하는 옵션
+
+- shouldFocusError: boolean = true
+  내장된 포커스 관리 활성 옵션, 사용자가 유효성 검사에 실패한 양식을 제출하면 오류가 있는 첫 번째 필드에 포커스.
+
+- delayError: number
+  오류가 즉시 나타나는 것을 지연하는 옵션 ms 단위로 지정하고 사용자가 입력 오류를 정정하면 오류는 딜레이없이 즉시 사라짐
+
+- shouldUseNativeValidation
+  브라우저 내장 양식 제약 API를 사용하는 옵션
+
+- shouldUnregister: boolean = false
+  unmount 후 input의 unregister 활성 옵션
+
+#### [register](https://www.react-hook-form.com/api/useform/register/)
+
+register: (name: string, RegisterOptions?) => ({ onChange, onBlur, name, ref })
+
+```javascript
+const { onChange, onBlur, name, ref } = register('firstName');
+// include type check against field path with the name you have supplied.
+
+<input
+  onChange={onChange} // assign onChange event
+  onBlur={onBlur} // assign onBlur event
+  name={name} // assign name prop
+  ref={ref} // assign ref prop
+/>
+// same as above
+<input {...register('firstName')} />
+```
+
+register options
+
+- required: string | { value: boolean, message: string} 입력 필수 지정 옵션
+- maxLength: { value: number, message: string } 최대 길이 지정 옵션
+- minLength: { value: number, message: string } 최소 길이 지정 옵션
+- maxLength: { value: number, message: string } 입력 최댓값 지정 옵션
+- min: { value: number, message: string } 입력 최솟값 지정 옵션
+- pattern: { value: number, message: string } 입력에 대한 regex 지정 옵션
+- validate: { value: number, message: string } 콜백 함수를 인수로 전달하여 유효성을 검사할 수도 있고, 콜백 함수의 객체를 전달하여 모든 유효성을 검사할 수도 있다
+- ```javascript
+  <input
+    {...register("test1", {
+      validate: {
+        positive: (v) => parseInt(v) > 0 || "should be greater than 0",
+        lessThanTen: (v) => parseInt(v) < 10 || "should be lower than 10",
+        validateNumber: (_: number, formValues: FormValues) => {
+          return formValues.number1 + formValues.number2 === 3 || "Check sum number";
+        },
+        // you can do asynchronous validation as well
+        checkUrl: async () => (await fetch()) || "error message", // JS only: <p>error message</p> TS only support string
+        messages: (v) => !v && ["test", "test2"],
+      },
+    })}
+  />
+  ```
+- valueAsNumber: boolean 숫자를 반환하고 문제가 생기면 NaN을 리턴
+- valueAsDate: boolean Date를 반환하고 문자가 생기면 Invalid Date를 리턴
+- setValueAs: <T>(value: any) => T 함수를 실행한 결과값을 반환합니다
+- disabled: boolean = false true일 경우 input 값은 undefined가 된다
+- deps: string | string[] dependent input에 대해 유효성 검사가 트리거되며 트리거가 아닌 register API로만 제한됩니다
+
+- ```typescript
+  import { useForm } from "react-hook-form";
+
+  function LoginForm({
+    onSubmit = async (data) => {
+      await new Promise((r) => setTimeout(r, 1000));
+      alert(JSON.stringify(data));
+    },
+  }) {
+    const {
+      register,
+      handleSubmit,
+      formState: { isSubmitting, isSubmitted, errors },
+    } = useForm();
+
+    return (
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <label htmlFor="email">이메일</label>
+        <input
+          id="email"
+          type="text"
+          placeholder="test@email.com"
+          aria-invalid={isSubmitted ? (errors.email ? "true" : "false") : undefined}
+          {...register("email", {
+            required: "이메일은 필수 입력입니다.",
+            pattern: {
+              value: /\S+@\S+\.\S+/,
+              message: "이메일 형식에 맞지 않습니다.",
+            },
+          })}
+        />
+        {errors.email && <small role="alert">{errors.email.message}</small>}
+        <label htmlFor="password">비밀번호</label>
+        <input
+          id="password"
+          type="password"
+          placeholder="****************"
+          aria-invalid={isSubmitted ? (errors.password ? "true" : "false") : undefined}
+          {...register("password", {
+            required: "비밀번호는 필수 입력입니다.",
+            minLength: {
+              value: 8,
+              message: "8자리 이상 비밀번호를 사용하세요.",
+            },
+          })}
+        />
+        {errors.password && <small role="alert">{errors.password.message}</small>}
+        <button type="submit" disabled={isSubmitting}>
+          로그인
+        </button>
+      </form>
+    );
+  }
+
+  export default Form;
+  ```
+
+register rule
+
+- name은 unique 해야 한다
+- name은 특수문자 및 숫자로 시작되지 않아야 한다
+- TypeScript 사용 일관성을 위해서 도트 구문을 사용하고 있으므로 대괄호 []는 배열 형식 값에 대해 작동하지 않는다
+- name이 변경되면 새로운 input이 register된 것으로 작동하므로 정적인 name을 사용해는 것을 추천한다
+- input 값과 참조는 unmount되어도 제거되지 않으므로 unregister를 통해 제거한다
+- 개별 register 옵션은 undefined와 {}로 제거되지 않는다
+  - ````javascript
+          register('test', { required: true });
+          register('test', {}); // ❌
+          register('test', undefined); // ❌
+          register('test', { required: false });  // ✅
+        ```
+    ````
+
+example
+
+```typescript
+import { useForm } from "react-hook-form";
+
+function LoginForm() {
+  const { register, handleSubmit } = useForm();
+
+  return (
+    <form onSubmit={handleSubmit((data) => alert(JSON.stringify(data)))}>
+      <label htmlFor="email">이메일</label>
+      <input id="email" type="email" placeholder="test@email.com" {...register("email")} />
+      <label htmlFor="password">비밀번호</label>
+      <input id="password" type="password" placeholder="****************" {...register("password")} />
+      <button type="submit">로그인</button>
+    </form>
+  );
+}
+
+export default Form;
+```
+
+[formState](https://www.react-hook-form.com/api/useform/formstate/)
+
+- isSubmmitting: 중복 제출 방지를 위해 disabled 속성에 적용하면 제출 처리가 완료될 때까지 비활성화된다.
+
+```typescript
+import { useForm } from "react-hook-form";
+
+function LoginForm() {
+  const {
+    register,
+    handleSubmit,
+    formState: { isSubmitting },
+  } = useForm();
+
+  return (
+    <form
+      onSubmit={handleSubmit(async (data) => {
+        await new Promise((r) => setTimeout(r, 1000));
+        alert(JSON.stringify(data));
+      })}
+    >
+      <label htmlFor="email">이메일</label>
+      <input id="email" type="email" placeholder="test@email.com" {...register("email")} />
+      <label htmlFor="password">비밀번호</label>
+      <input id="password" type="password" placeholder="****************" {...register("password")} />
+      <button type="submit" disabled={isSubmitting}>
+        로그인
+      </button>
+    </form>
+  );
+}
+
+export default Form;
+```
+
+testing
+
+```typescript
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import LoginForm from "./LoginForm";
+
+test("validates form", async () => {
+  const onSubmit = jest.fn();
+  render(<LoginForm onSubmit={onSubmit} />);
+
+  const button = screen.getByRole("button", { name: "로그인" });
+
+  userEvent.click(button);
+
+  const alerts = await screen.findAllByRole("alert");
+  expect(alerts).toHaveLength(2);
+  expect(onSubmit).not.toHaveBeenCalled();
+});
+
+test("submits form", async () => {
+  const onSubmit = jest.fn();
+  render(<LoginForm onSubmit={onSubmit} />);
+
+  const email = screen.getByRole("textbox", { name: "이메일" });
+  const password = screen.getByLabelText("비밀번호");
+  const button = screen.getByRole("button", { name: "로그인" });
+
+  userEvent.type(email, "test@email.com");
+  userEvent.type(password, "Test1234");
+
+  userEvent.click(button);
+
+  await waitFor(() =>
+    expect(onSubmit).toHaveBeenCalledWith(
+      {
+        email: "test@email.com",
+        password: "Test1234",
+      },
+      expect.anything()
+    )
+  );
+
+  expect(screen.queryAllByRole("alert")).toHaveLength(0);
+});
+```
+
+getValues & watch
+
+- watch : 입력된 값을 추적하고 반환하며 해당 값에 따라 리렌더링을 발생시킴
+- getValues: 값을 반환하지만 리렌더링을 발생시키지 않고, 해당 값을 추적하지 않음
+
+참고한 자료 및 추천자료
+[https://www.react-hook-form.com/](https://www.react-hook-form.com/)
+[https://www.daleseo.com/react-hook-form/](https://www.daleseo.com/react-hook-form/)
+[https://velog.io/@yjinhann/react-hook-form-%EA%B3%BC-%EB%B9%84%EC%A0%9C%EC%96%B4-%EC%BB%B4%ED%8F%AC%EB%84%8C%ED%8A%B8](https://velog.io/@yjinhann/react-hook-form-%EA%B3%BC-%EB%B9%84%EC%A0%9C%EC%96%B4-%EC%BB%B4%ED%8F%AC%EB%84%8C%ED%8A%B8)
